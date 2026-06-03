@@ -31,6 +31,54 @@ def add_expense(expenses):
     expenses.append(expense)
     print(f"Added: {description} - ${amount:.2f} [{category}]")
 
+def view_expenses(expenses):
+    print("\n--- All Expenses ---")
+    # Handle empty list case
+    if not expenses:
+        print("No expenses recorded yet.")
+        return
+    # Print column headers with f-string alignment
+    print(f"{'Date':<12} {'Category':<15} {'Description':<20} {'Amount':>8}")
+    print("-" * 58)
+    # Print each expense row
+    for expense in expenses:
+        print(
+            f"{expense['date']:<12} {expense['category']:<15} "
+            f"{expense['description']:<20} ${expense['amount']:>7.2f}"
+        )
+    # Print total at the bottom
+    print("-" * 58)
+    total = sum(expense["amount"] for expense in expenses)
+    print(f"{'Total:':<49} ${total:>7.2f}")
+
+
+def filter_by_category(expenses):
+    print("\n--- Filter by Category ---")
+    if not expenses:
+        print("No expenses recorded yet.")
+        return
+    # Show available categories using a set comprehension
+    categories = sorted(set(expense["category"] for expense in expenses))
+    print("Available categories:", ", ".join(categories))
+    choice = input("Enter category to filter: ").strip()
+    # Filter with list comprehension and case-insensitive comparison
+    filtered = [e for e in expenses if e["category"].lower() == choice.lower()]
+    if not filtered:
+        print(f"No expenses found in category '{choice}'.")
+        return
+    # Display filtered results
+    print(f"\n{'Date':<12} {'Description':<20} {'Amount':>8}")
+    print("-" * 43)
+    for expense in filtered:
+        print(
+            f"{expense['date']:<12} {expense['description']:<20} "
+            f"${expense['amount']:>7.2f}"
+        )
+    print("-" * 43)
+    total = sum(expense["amount"] for expense in filtered)
+    print(f"{'Total:':<34} ${total:>7.2f}")
+
+
 def show_menu():
     # Display the main menu options
     print("\n===== Expense Tracker =====")
@@ -53,9 +101,9 @@ def main():
         if choice == "1":
             add_expense(expenses)
         elif choice == "2":
-            pass
+            view_expenses(expenses)
         elif choice == "3":
-            pass
+            filter_by_category(expenses)
         elif choice == "4":
             pass
         elif choice == "5":
