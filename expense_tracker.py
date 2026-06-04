@@ -4,6 +4,26 @@ from datetime import datetime
 
 DATA_FILE = "expenses.csv"
 
+def load_expenses():
+    expenses = []
+    if not os.path.exists(DATA_FILE):
+        return expenses
+    with open(DATA_FILE, "r", newline="") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            row["amount"] = float(row["amount"])
+            expenses.append(row)
+    return expenses
+
+
+def save_expenses(expenses):
+    with open(DATA_FILE, "w", newline="") as file:
+        fieldnames = ["date", "category", "description", "amount"]
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        for expense in expenses:
+            writer.writerow(expense)
+
 
 def add_expense(expenses):
     print("\n--- Add New Expense ---")
@@ -29,6 +49,7 @@ def add_expense(expenses):
         "amount": amount,
     }
     expenses.append(expense)
+    save_expenses(expenses)
     print(f"Added: {description} - ${amount:.2f} [{category}]")
 
 def view_expenses(expenses):
@@ -92,8 +113,10 @@ def show_menu():
 
 def main():
     # Start with an empty list of expenses
-    expenses = []
+    expenses = load_expenses()
+
     print("Welcome to Expense Tracker!")
+
     # Keep showing the menu until the user chooses to exit
     while True:
         show_menu()
