@@ -15,7 +15,6 @@ def load_expenses():
             expenses.append(row)
     return expenses
 
-
 def save_expenses(expenses):
     with open(DATA_FILE, "w", newline="") as file:
         fieldnames = ["date", "category", "description", "amount"]
@@ -51,6 +50,10 @@ def add_expense(expenses):
     expenses.append(expense)
     save_expenses(expenses)
     print(f"Added: {description} - ${amount:.2f} [{category}]")
+
+    total = sum(item["amount"] for item in expenses)
+    print(f"{'Total:':<49} ${total:>7.2f}")
+
 
 def view_expenses(expenses):
     print("\n--- All Expenses ---")
@@ -99,6 +102,28 @@ def filter_by_category(expenses):
     total = sum(expense["amount"] for expense in filtered)
     print(f"{'Total:':<34} ${total:>7.2f}")
 
+def show_summary(expenses):
+    print("\n--- Spending Summary ---")
+    if not expenses:
+        print("No expenses recorded yet.")
+        return
+    # Calculate overall statistics
+    total = sum(expense["amount"] for expense in expenses)
+    print(f"Total expenses: ${total:.2f}")
+    print(f"Number of transactions: {len(expenses)}")
+    print(f"Average expense: ${total / len(expenses):.2f}")
+
+    # Break down spending by category
+    print("\nSpending by category:")
+    categories = {}
+    for expense in expenses:
+        cat = expense["category"]
+        categories[cat] = categories.get(cat, 0) + expense["amount"]
+    # Sort by amount spent, highest first
+    for cat, amount in sorted(categories.items(), key=lambda x: x[1], reverse=True):
+        print(f"  {cat:<15} ${amount:>7.2f}")
+
+
 
 def show_menu():
     # Display the main menu options
@@ -128,7 +153,7 @@ def main():
         elif choice == "3":
             filter_by_category(expenses)
         elif choice == "4":
-            pass
+            show_summary(expenses)
         elif choice == "5":
             print("Goodbye! Your expenses have been saved.")
             break
