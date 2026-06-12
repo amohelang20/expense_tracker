@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 
 DATA_FILE = "expenses.csv"
+BUDGET_FILE = "budget.txt"
 
 def load_expenses():
     expenses = []
@@ -123,29 +124,101 @@ def show_summary(expenses):
     for cat, amount in sorted(categories.items(), key=lambda x: x[1], reverse=True):
         print(f"  {cat:<15} ${amount:>7.2f}")
 
+def load_budget():
+    # Return the saved budget as a float, or None if no budget is set
+    if not os.path.exists(BUDGET_FILE):
+        return None
+    with open(BUDGET_FILE, "r") as file:
+        try:
+            return float(file.read().strip())
+        except ValueError:
+            return None
 
+
+def save_budget(amount):
+    # Write the budget amount to the budget file
+    with open(BUDGET_FILE, "w") as file:
+        file.write(str(amount))
+
+def set_budget():
+    print("\n--- Set Monthly Budget ---")
+    # Show the current budget if one exists
+    current = load_budget()
+    if current is not None:
+        print(f"Current budget: ${current:.2f}")
+    # Prompt for a new budget with validation
+    while True:
+        budget_input = input("Enter your monthly budget: $")
+        try:
+            budget = float(budget_input)
+            if budget <= 0:
+                print("Budget must be a positive number.")
+                continue
+            break
+        except ValueError:
+            print("Please enter a valid number.")
+    save_budget(budget)
+    print(f"Monthly budget set to ${budget:.2f}")
+
+
+def check_budget(expenses):
+    print("\n--- Budget Status ---")
+    budget = load_budget()
+    if budget is None:
+        print("No budget set. Use 'Set budget' to set one.")
+        return
+    # Get the current month and year for filtering
+    today = datetime.today()
+    current_month = today.month
+    current_year = today.year
+    # Filter expenses to only those in the current month
+    monthly_expenses = []
+    for expense in expenses:
+        try:
+            expense_date = datetime.strptime(expense["date"], "%Y-%m-%d")
+            if expense_date.month == current_month and expense_date.year == current_year:
+                monthly_expenses.append(expense)
+        except ValueError:
+            continue
+    # Calculate spending stats
+    spent = sum(e["amount"] for e in monthly_expenses)
+    remaining = budget - spent
+    percentage = (spent / budget) * 100 if budget > 0 else 0
+    # Build a 20-character progress bar
+    bar_length = 20
+    filled = int(bar_length * min(percentage, 100) / 100)
+    bar = "\u2588" * filled + "\u2591" * (bar_length - filled)
+    # Display the budget status
+    print(f"Month: {today.strftime('%B %Y')}")
+    print(f"Budget:  ${budget:.2f}")
+    print(f"Spent:   ${spent:.2f}")
+    print(f"Remaining: ${remaining:.2f}")
+    print(f"\n[{bar}] {percentage:.1f}%")
+    # Show warnings based on threshold
+    if percentage >= 100:
+        print("\n\u26a0\ufe0f  OVER BUDGET! You've exceeded your monthly limit.")
+    elif percentage >= 80:
+        print("\n\u26a0\ufe0f  Warning: You've used over 80% of your monthly budget.")
+    else:
+        print("\n\u2705 You're within budget. Keep it up!")
 
 def show_menu():
-    # Display the main menu options
     print("\n===== Expense Tracker =====")
     print("1. Add expense")
     print("2. View all expenses")
     print("3. Filter by category")
     print("4. Spending summary")
-    print("5. Exit")
+    print("5. Set budget")
+    print("6. Check budget")
+    print("7. Exit")
     print("===========================")
 
-
 def main():
-    # Start with an empty list of expenses
     expenses = load_expenses()
-
     print("Welcome to Expense Tracker!")
-
-    # Keep showing the menu until the user chooses to exit
     while True:
         show_menu()
-        choice = input("Choose an option (1-5): ").strip()
+        choice = input("Choose an option (1-7): ").strip()
         if choice == "1":
             add_expense(expenses)
         elif choice == "2":
@@ -155,10 +228,14 @@ def main():
         elif choice == "4":
             show_summary(expenses)
         elif choice == "5":
+            set_budget()
+        elif choice == "6":
+            check_budget(expenses)
+        elif choice == "7":
             print("Goodbye! Your expenses have been saved.")
             break
         else:
-            print("Invalid option. Please enter 1-5.")
+            print("Invalid option. Please enter 1-7.")
 
 
 if __name__ == "__main__":
