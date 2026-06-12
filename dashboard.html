@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Tracker Dashboard</title>
+    <!-- Load Chart.js from CDN for the spending chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+            padding: 2rem;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #1a1a1a;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            color: #444;
+        }
+
+        /* Add expense form styles */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.3rem;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.7rem;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        /* Expense table styles */
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 0.6rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f9f9f9;
+            font-weight: 600;
+        }
+
+        .amount {
+            text-align: right;
+            font-weight: 500;
+        }
+
+        .total-row {
+            font-weight: bold;
+            border-top: 2px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Expense Tracker Dashboard</h1>
+    <div class="container">
+        <!-- Add expense form -->
+        <div class="card">
+            <h2>Add Expense</h2>
+            <form id="expense-form">
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select id="category">
+                        <option value="Food">Food</option>
+                        <option value="Transport">Transport</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Bills">Bills</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <input type="text" id="description" placeholder="What did you spend on?" required>
+                </div>
+                <div class="form-group">
+                    <label for="amount">Amount ($)</label>
+                    <input type="number" id="amount" step="0.01" min="0.01" placeholder="0.00" required>
+                </div>
+                <button type="submit">Add Expense</button>
+            </form>
+        </div>
+
+        <!-- Spending by category chart -->
+        <div class="card">
+            <h2>Spending by Category</h2>
+            <canvas id="category-chart"></canvas>
+        </div>
+
+        <!-- Expense table -->
+        <div class="card full-width">
+            <h2>All Expenses</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Category</th>
+                        <th>Description</th>
+                        <th class="amount">Amount</th>
+                    </tr>
+                </thead>
+                <tbody id="expense-table"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let chartInstance = null;
+
+        // Fetch expenses from the Python server and update the page
+        async function loadExpenses() {
+            const response = await fetch('/api/expenses');
+            const expenses = await response.json();
+            renderTable(expenses);
+            renderChart(expenses);
+        }
+
+        // Display all expenses in the HTML table
+        function renderTable(expenses) {
+            const tbody = document.getElementById('expense-table');
+            if (expenses.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4">No expenses yet.</td></tr>';
+                return;
+            }
+            let total = 0;
+            let rows = '';
+            for (const exp of expenses) {
+                total += exp.amount;
+                rows += `<tr>
+                    <td>${exp.date}</td>
+                    <td>${exp.category}</td>
+                    <td>${exp.description}</td>
+                    <td class="amount">$${exp.amount.toFixed(2)}</td>
+                </tr>`;
+            }
+            rows += `<tr class="total-row">
+                <td colspan="3">Total</td>
+                <td class="amount">$${total.toFixed(2)}</td>
+            </tr>`;
+            tbody.innerHTML = rows;
+        }
+
+        // Build a doughnut chart showing spending grouped by category
+        function renderChart(expenses) {
+            const categoryTotals = {};
+            for (const exp of expenses) {
+                categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
+            }
+            const labels = Object.keys(categoryTotals);
+            const data = Object.values(categoryTotals);
+            const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
+
+            // Destroy old chart if it exists before creating a new one
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            const ctx = document.getElementById('category-chart');
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors.slice(0, labels.length)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        // Handle the add-expense form submission
+        document.getElementById('expense-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const expense = {
+                category: document.getElementById('category').value,
+                description: document.getElementById('description').value,
+                amount: parseFloat(document.getElementById('amount').value)
+            };
+            await fetch('/api/expenses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(expense)
+            });
+            // Clear the form and reload the data
+            document.getElementById('expense-form').reset();
+            loadExpenses();
+        });
+
+        // Load expenses when the page first opens
+        loadExpenses();
+    </script>
+</body>
+</html>
